@@ -1,0 +1,8 @@
+# macOS
+.DS_Store
+
+# Logs (if users redirect output)
+*.log
+
+# Editor swap files
+*~
