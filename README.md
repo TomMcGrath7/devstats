@@ -1,6 +1,9 @@
 # DevStats
 
-DevStats is a small shell script that generates **daily developer stats** across multiple local Git repos.
+DevStats is a collection of shell scripts that generate **developer stats** across multiple local Git repos.
+
+- `devstats_daily.sh` — stats for a single day
+- `devstats_range.sh` — aggregate stats over a date range (weekend, week, month, etc.)
 
 It computes code stats locally from `git`, and can optionally include PR stats from GitHub via the GitHub CLI (`gh`).
 
@@ -34,7 +37,7 @@ Optional:
 ```bash
 git clone https://github.com/YOUR_USERNAME/devstats.git
 cd devstats
-chmod +x bin/devstats_daily.sh
+chmod +x bin/devstats_daily.sh bin/devstats_range.sh
 ```
 
 ## Quick start
@@ -96,24 +99,67 @@ override the author filter using a regular expression:
 AUTHOR_EMAIL="(me@work.com|me@gmail.com)" BASE=~/Documents/GitHub ./bin/devstats_daily.sh
 ```
 
-## Set up a terminal command (alias)
+## Date range stats
 
-To make DevStats easy to run daily, you can add an alias to your shell.
+Use `devstats_range.sh` to aggregate stats over multiple days — useful for reviewing a weekend, a full week, or a month.
 
-For zsh on macOS:
+### Preset ranges
 
 ```bash
-echo 'alias devstats="BASE=~/Documents/GitHub ~/devstats/bin/devstats_daily.sh"' >> ~/.zshrc
+RANGE=weekend ./bin/devstats_range.sh        # Last Sat-Sun
+RANGE=last-week ./bin/devstats_range.sh      # Previous Mon-Sun
+RANGE=this-week ./bin/devstats_range.sh      # This Mon to today
+RANGE=last-7 ./bin/devstats_range.sh         # Last 7 days
+RANGE=last-14 ./bin/devstats_range.sh        # Last 14 days
+RANGE=last-30 ./bin/devstats_range.sh        # Last 30 days
+RANGE=mtd ./bin/devstats_range.sh            # Month to date
+RANGE=ytd ./bin/devstats_range.sh            # Year to date
+```
+
+### Custom date range
+
+```bash
+FROM=2026-01-13 TO=2026-01-17 ./bin/devstats_range.sh
+```
+
+### Show daily breakdown
+
+Add `SHOW_DAILY=1` to see commits per day within the range:
+
+```bash
+RANGE=last-week SHOW_DAILY=1 ./bin/devstats_range.sh
+```
+
+## Set up terminal commands (aliases)
+
+To make DevStats easy to run, add aliases to your shell.
+
+For zsh on macOS, add to `~/.zshrc`:
+
+```bash
+# Daily stats
+alias devstats="BASE=~/Documents/GitHub ~/Documents/GitHub/devstats/bin/devstats_daily.sh"
+
+# Range stats
+alias devstats-range="BASE=~/Documents/GitHub ~/Documents/GitHub/devstats/bin/devstats_range.sh"
+```
+
+Then reload:
+```bash
 source ~/.zshrc
 ```
 
 After this, you can run:
 ```bash
-devstats
-WHEN=yesterday devstats
+devstats                           # Today's stats
+WHEN=yesterday devstats            # Yesterday's stats
+RANGE=weekend devstats-range       # Weekend stats
+RANGE=last-week devstats-range     # Weekly stats
 ```
 
-## Output example
+## Output examples
+
+### Daily output
 
 ```text
 Date: 2026-01-16
@@ -133,6 +179,44 @@ Language breakdown (by lines changed):
  - TypeScript: 70%
  - Markdown: 20%
  - YAML: 10%
+```
+
+### Range output
+
+```text
+=== Last Week ===
+Period: 2026-01-12 to 2026-01-18 (7 days)
+
+Repos worked on: 5
+Commits: 42
+Code: +3200 / -800 | net: 2400 | total changed: 4000
+Files changed: 85
+Churn ratio (deleted/added): 0.25
+
+Averages:
+  Per commit: 95.2 lines
+  Per day: 6.0 commits, 571 lines
+
+PRs: opened=3, merged=2
+
+Repos (top):
+ - repo-a: 20 commits, 2500 lines changed
+ - repo-b: 15 commits, 1200 lines changed
+
+Language breakdown (by lines changed):
+ - TypeScript: 60%
+ - Python: 25%
+ - Markdown: 15%
+
+Daily breakdown:
+  2026-01-12: 5 commits
+  2026-01-13: 8 commits
+  2026-01-14: 6 commits
+  2026-01-15: 7 commits
+  2026-01-16: 6 commits
+  2026-01-17: 5 commits
+  2026-01-18: 5 commits
+```
 
 ## Notes
 
