@@ -41,6 +41,23 @@ Configuration (environment variables):
     Example:
       AUTHOR_EMAIL="(me@work.com|me@gmail.com)"
 
+  TOP_REPOS
+    Number of top repos to display:
+      5  (default)
+      0  show all repos
+
+  TOP_LANGS
+    Number of top languages to display:
+      6  (default)
+      0  show all languages
+
+  EXCLUDE_LANGS
+    Comma-separated list of languages to exclude from breakdown.
+    Uses the display names (case-insensitive).
+    Examples:
+      EXCLUDE_LANGS="JSON"
+      EXCLUDE_LANGS="JSON,Markdown,YAML"
+
 Examples:
 
   BASE=~/Documents/GitHub ./bin/devstats_daily.sh
@@ -63,6 +80,9 @@ AUTHOR_EMAIL="${AUTHOR_EMAIL:-$(git config --global user.email)}"
 
 INCLUDE_PRS="${INCLUDE_PRS:-1}"             # 1 or 0
 GH_BIN="${GH_BIN:-gh}"
+TOP_REPOS="${TOP_REPOS:-5}"
+TOP_LANGS="${TOP_LANGS:-6}"
+EXCLUDE_LANGS="${EXCLUDE_LANGS:-}"
 
 # ---- determine time window ----
 DAY=""
@@ -94,29 +114,112 @@ lang_label() {
     ts) echo "TypeScript" ;;
     jsx) echo "JSX" ;;
     tsx) echo "TSX" ;;
+    mjs|cjs) echo "JavaScript" ;;
     py) echo "Python" ;;
+    pyx|pxd|pxi) echo "Cython" ;;
     go) echo "Go" ;;
     rb) echo "Ruby" ;;
     java) echo "Java" ;;
-    kt) echo "Kotlin" ;;
+    kt|kts) echo "Kotlin" ;;
     swift) echo "Swift" ;;
     rs) echo "Rust" ;;
     c) echo "C" ;;
     h|hpp|hh|hxx|cpp|cc|cxx) echo "C/C++" ;;
     cs) echo "C#" ;;
+    fs|fsx|fsi) echo "F#" ;;
     php) echo "PHP" ;;
-    html) echo "HTML" ;;
+    html|htm) echo "HTML" ;;
     css) echo "CSS" ;;
-    scss) echo "SCSS" ;;
-    md) echo "Markdown" ;;
+    scss|sass|less) echo "CSS/SCSS" ;;
+    md|mdx) echo "Markdown" ;;
     yml|yaml) echo "YAML" ;;
-    json) echo "JSON" ;;
+    json|jsonc|json5) echo "JSON" ;;
     sql) echo "SQL" ;;
-    sh|zsh|bash) echo "Shell" ;;
+    sh|zsh|bash|fish) echo "Shell" ;;
     toml) echo "TOML" ;;
+    xml|xsl|xslt) echo "XML" ;;
+    vue) echo "Vue" ;;
+    svelte) echo "Svelte" ;;
+    astro) echo "Astro" ;;
+    lua) echo "Lua" ;;
+    r|R) echo "R" ;;
+    jl) echo "Julia" ;;
+    ex|exs) echo "Elixir" ;;
+    erl|hrl) echo "Erlang" ;;
+    hs|lhs) echo "Haskell" ;;
+    ml|mli) echo "OCaml" ;;
+    clj|cljs|cljc|edn) echo "Clojure" ;;
+    scala|sc) echo "Scala" ;;
+    groovy|gvy|gy|gsh) echo "Groovy" ;;
+    dart) echo "Dart" ;;
+    zig) echo "Zig" ;;
+    nim) echo "Nim" ;;
+    v) echo "V" ;;
+    cr) echo "Crystal" ;;
+    pl|pm) echo "Perl" ;;
+    tf|tfvars) echo "Terraform" ;;
+    proto) echo "Protobuf" ;;
+    graphql|gql) echo "GraphQL" ;;
+    prisma) echo "Prisma" ;;
+    sol) echo "Solidity" ;;
+    move) echo "Move" ;;
+    cairo) echo "Cairo" ;;
+    ipynb) echo "Jupyter" ;;
+    tex|latex) echo "LaTeX" ;;
+    rst) echo "reStructuredText" ;;
+    org) echo "Org" ;;
+    txt) echo "Text" ;;
+    csv) echo "CSV" ;;
+    lock) echo "Lockfile" ;;
+    dockerfile|Dockerfile) echo "Dockerfile" ;;
+    makefile|Makefile|mk) echo "Makefile" ;;
+    cmake) echo "CMake" ;;
+    gradle) echo "Gradle" ;;
+    properties) echo "Properties" ;;
+    ini|cfg|conf) echo "Config" ;;
+    env) echo "Env" ;;
+    gitignore|gitattributes) echo "Git" ;;
+    editorconfig) echo "EditorConfig" ;;
+    pbxproj|xcscheme|xcworkspacedata|xcuserstate|xcbkptlist) echo "Xcode" ;;
+    plist|entitlements) echo "Plist" ;;
+    svg) echo "SVG" ;;
+    png|jpg|jpeg|gif|webp|ico|icns) echo "Image" ;;
+    woff|woff2|ttf|otf|eot) echo "Font" ;;
+    mp3|wav|ogg|flac|m4a) echo "Audio" ;;
+    mp4|mov|avi|mkv|webm) echo "Video" ;;
+    pdf) echo "PDF" ;;
+    zip|tar|gz|rar|7z) echo "Archive" ;;
+    dockerignore) echo "Docker" ;;
+    eslintrc|prettierrc|babelrc) echo "Config" ;;
+    nvmrc|npmrc|yarnrc) echo "Config" ;;
+    graphqls) echo "GraphQL" ;;
+    prisma) echo "Prisma" ;;
+    snap) echo "Snapshot" ;;
+    storyboard|xib) echo "Xcode" ;;
+    strings|stringsdict) echo "Strings" ;;
+    modulemap) echo "Modulemap" ;;
+    xcconfig) echo "Xcode" ;;
+    podspec) echo "CocoaPods" ;;
+    gemspec) echo "Ruby" ;;
+    rake|gemfile) echo "Ruby" ;;
     NoExt) echo "NoExt" ;;
     *) echo "${ext:u}" ;;
   esac
+}
+
+# ---- check if language should be excluded ----
+is_excluded_lang() {
+  local lang="$1"
+  [[ -z "$EXCLUDE_LANGS" ]] && return 1
+  local exclude_lower
+  exclude_lower="$(echo "$EXCLUDE_LANGS" | tr '[:upper:]' '[:lower:]')"
+  local lang_lower
+  lang_lower="$(echo "$lang" | tr '[:upper:]' '[:lower:]')"
+  echo "$exclude_lower" | tr ',' '\n' | while read -r excluded; do
+    excluded="$(echo "$excluded" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    [[ "$lang_lower" == "$excluded" ]] && return 0
+  done
+  return 1
 }
 
 # ---- gather per-repo stats ----
@@ -227,22 +330,51 @@ echo "Avg lines changed/commit: $avg_change_per_commit"
 echo "PRs: opened=$prs_opened, merged=$prs_merged"
 echo ""
 
-echo "Repos (top):"
+if [[ "$TOP_REPOS" -eq 0 ]]; then
+  echo "Repos (all):"
+else
+  echo "Repos (top $TOP_REPOS):"
+fi
 i=0
 echo "$repos_list" | while IFS=$'\t' read -r repo totchg c; do
   i=$((i+1))
-  [[ "$i" -gt 5 ]] && break
+  [[ "$TOP_REPOS" -gt 0 && "$i" -gt "$TOP_REPOS" ]] && break
   echo " - ${repo:t}: $c commits, $totchg lines changed"
 done
 
 if [[ -n "$lang_summary" ]]; then
   echo ""
-  echo "Language breakdown (by lines changed):"
+  # Aggregate by language label (not extension) and filter exclusions
+  typeset -A lang_totals
+  filtered_total=0
+  while IFS=$'\t' read -r ext ch tot; do
+    label="$(lang_label "$ext")"
+    if ! is_excluded_lang "$label"; then
+      lang_totals[$label]=$((${lang_totals[$label]:-0} + ch))
+      filtered_total=$((filtered_total + ch))
+    fi
+  done <<< "$lang_summary"
+
+  # Sort by count descending
+  sorted_langs=""
+  for label in "${(@k)lang_totals}"; do
+    sorted_langs="${sorted_langs}${label}\t${lang_totals[$label]}\n"
+  done
+  sorted_langs="$(printf "$sorted_langs" | sort -t$'\t' -k2,2nr)"
+
+  if [[ "$TOP_LANGS" -eq 0 ]]; then
+    echo "Language breakdown (by lines changed):"
+  elif [[ -n "$EXCLUDE_LANGS" ]]; then
+    echo "Language breakdown (top $TOP_LANGS, excluding: $EXCLUDE_LANGS):"
+  else
+    echo "Language breakdown (top $TOP_LANGS):"
+  fi
   i=0
-  echo "$lang_summary" | while IFS=$'\t' read -r ext ch tot; do
+  printf "$sorted_langs" | while IFS=$'\t' read -r label ch; do
+    [[ -z "$label" ]] && continue
     i=$((i+1))
-    [[ "$i" -gt 6 ]] && break
-    pct="$(awk -v c="$ch" -v t="$tot" 'BEGIN{ if (t>0) printf "%.0f", (100*c/t); else print "0"}')"
-    echo " - $(lang_label "$ext"): $pct%"
+    [[ "$TOP_LANGS" -gt 0 && "$i" -gt "$TOP_LANGS" ]] && break
+    pct="$(awk -v c="$ch" -v t="$filtered_total" 'BEGIN{ if (t>0) printf "%.0f", (100*c/t); else print "0"}')"
+    echo " - $label: $pct%"
   done
 fi
